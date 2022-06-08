@@ -33,6 +33,49 @@ rule get_subject_list:
                 out.write(s+'\n') 
         session.disconnect()
 
+rule get_imaging_sessions:
+    params:
+        site_id = 'EPL31_{site}',
+        subj_id = 'EPL31_{site}_{subject}'
+    output:
+        exp_list = 'resources/site-{site}_sub-{subject}_experiments.txt'
+    run:
+        session = xnat.connect(config['spred_url'],user=os.environ['SPRED_USER'],password=os.environ['SPRED_PASS'])
+        experiments = [row[0] for row in session.projects[params.site_id].subjects[params.subj_id].experiments.tabulate(columns=['label'])]
+
+        with open(output.exp_list, "w") as out:
+            for exp in experiments:
+                out.write(exp+'\n') 
+        session.disconnect()
+
+
+rule get_zips:
+    input:
+        exp_list = 'resources/site-{site}_sub-{subject}_experiments.txt'
+    output:
+        zip_dir = directory('zips/site-{site}/sub-{subject}/{filetype}')
+    run:    
+        session = xnat.connect(config['spred_url'],user=os.environ['SPRED_USER'],password=os.environ['SPRED_PASS'])
+        shell('mkdir -p {output.zip_dir}')
+        with open(input.exp_list) as fd:
+            for exp in fd.read().splitlines():
+                if exp.split('_')[-1] == wildcards.filetype:
+                    experiment = session.create_object(f'/data/projects/EPL31_{wildcards.site}/experiments/{exp}')
+                    experiment.download(f'{output.zip_dir}/{exp}.dl.zip') 
+                    #there is a zipfile in this zipfile, so unzip this one (junking any directories inside the zip)
+                    shell(f'unzip -j -d {output.zip_dir} {output.zip_dir}/{exp}.dl.zip')
+                    #then delete it
+                    shell(f'rm {output.zip_dir}/{exp}.dl.zip')
+
+                    
+
+        session.disconnect()
+
+#rule extract_zips:
+#    input:
+#        zip_dir = directory('zips/site-{site}/sub-{subject}/{filetype}')
+
+
 
 rule download_mri_zip:
     params:
@@ -40,6 +83,7 @@ rule download_mri_zip:
     output:
         zipfile = 'raw/site-{site}/sub-{subject}/mri.zip'
     run:
+        print(params.remote_path)
         session = xnat.connect(config['spred_url'],user=os.environ['SPRED_USER'],password=os.environ['SPRED_PASS'])
         experiment = session.create_object(params.remote_path)
         experiment.download(output.zipfile)

@@ -8,6 +8,7 @@ sites:
 tmp_download: '/localscratch'
 
 remote_path_mri: '/data/projects/EPL31_{site}/experiments/EPL31_{site}_{subject}_01_SE01_MR'
+remote_path_eeg: '/data/projects/EPL31_{site}/experiments/EPL31_{site}_{subject}_01_SE01_EEG'
 
 tar2bids:
   HSC: 'resources/heuristics/hsc_eplink.py'

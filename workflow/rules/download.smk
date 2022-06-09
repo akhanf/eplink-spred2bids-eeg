@@ -65,24 +65,41 @@ rule get_zips:
                     experiment.download(f'{output.zip_dir}/{exp}.zip') 
         session.disconnect()
 
-rule extract_zips_eeg:
-    """extract zip file, then extract the zip file in that; creates a flat bids tree"""
+
+
+
+rule extract_zips_eeg_lhs:
+    """LHS has zip in zip file; extract zip file, then extract the zip file in that; creates a flat bids tree"""
     input:
         zip_dir = 'zips/site-{site}/sub-{subject}/{filetype}'
     output:
-        raw_dir = directory('raw/site-{site}/sub-{subject}/{filetype,EEG}')
+        raw_dir = directory('raw/site-{site,LHS}/sub-{subject}/{filetype,EEG}')
     shadow: 'minimal'
     shell:
         'mkdir -p {output.raw_dir} temp_zips && '
         'for zip in $(ls {input.zip_dir}/*.zip); '
         'do'
         ' unzip -j -d temp_zips ${{zip}}; '
-        'done'
+        'done && '
         'for zip in $(ls temp_zips/*.zip); '
         'do'
         ' unzip -j -d {output.raw_dir} ${{zip}}; '
         'done'
 
+
+rule extract_zips_eeg_twh_hsc:
+    """TWH and HSC just have a zip file with the bids data"""
+    input:
+        zip_dir = 'zips/site-{site}/sub-{subject}/{filetype}'
+    output:
+        raw_dir = directory('raw/site-{site,TWH|HSC}/sub-{subject}/{filetype,EEG}')
+    shadow: 'minimal'
+    shell:
+        'mkdir -p {output.raw_dir}  && '
+        'for zip in $(ls {input.zip_dir}/*.zip); '
+        'do'
+        ' unzip -j -d {output.raw_dir} ${{zip}}; '
+        'done'
 
 rule gather_eeg_bids:
     input:

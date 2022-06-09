@@ -10,7 +10,7 @@ def get_subjects(site):
         with open(f'resources/subjects_{site}.txt','r') as f:
             return [s.replace('\n','') for s in f.readlines()]
 
-localrules: get_subject_list, download_mri_zip
+localrules: get_subject_list
 
 rule get_subject_list:
     params:
@@ -20,17 +20,18 @@ rule get_subject_list:
     run:
         session = xnat.connect(config['spred_url'],user=os.environ['SPRED_USER'],password=os.environ['SPRED_PASS'])
         subjects = [row[0] for row in session.projects[params.site_id].subjects.tabulate(columns=['label'])]
-        subjects_with_mr = list()
-        for subject in subjects:
-            try:
-                exp = session.create_object(f'/data/projects/{params.site_id}/experiments/{subject}_01_SE01_MR')
-                subjects_with_mr.append(subject.split('_')[2]) #strip off all but numeric part of ID
-            except:
-                print(f'{subject} does not have mri')
-
+#        subjects_with_mr = list()
+#        for subject in subjects:
+#            try:
+#                exp = session.create_object(f'/data/projects/{params.site_id}/experiments/{subject}_01_SE01_MR')
+#                subjects_with_mr.append(subject.split('_')[2]) #strip off all but numeric part of ID
+#            except:
+#                print(f'{subject} does not have mri')
+#
         with open(output.subj_list, "w") as out:
-            for s in subjects_with_mr:
-                out.write(s+'\n') 
+#            for s in subjects_with_mr:
+            for s in subjects:
+                out.write(s.split('_')[2]+'\n') 
         session.disconnect()
 
 rule get_imaging_sessions:
@@ -61,58 +62,68 @@ rule get_zips:
             for exp in fd.read().splitlines():
                 if exp.split('_')[-1] == wildcards.filetype:
                     experiment = session.create_object(f'/data/projects/EPL31_{wildcards.site}/experiments/{exp}')
-                    experiment.download(f'{output.zip_dir}/{exp}.dl.zip') 
-                    #there is a zipfile in this zipfile, so unzip this one (junking any directories inside the zip)
-                    shell(f'unzip -j -d {output.zip_dir} {output.zip_dir}/{exp}.dl.zip')
-                    #then delete it
-                    shell(f'rm {output.zip_dir}/{exp}.dl.zip')
-
-                    
-
+                    experiment.download(f'{output.zip_dir}/{exp}.zip') 
         session.disconnect()
 
-#rule extract_zips:
-#    input:
-#        zip_dir = directory('zips/site-{site}/sub-{subject}/{filetype}')
-
-
-
-rule download_mri_zip:
-    params:
-        remote_path = config['remote_path_mri']
+rule extract_zips_eeg:
+    """extract zip file, then extract the zip file in that; creates a flat bids tree"""
+    input:
+        zip_dir = 'zips/site-{site}/sub-{subject}/{filetype}'
     output:
-        zipfile = 'raw/site-{site}/sub-{subject}/mri.zip'
-    run:
-        print(params.remote_path)
-        session = xnat.connect(config['spred_url'],user=os.environ['SPRED_USER'],password=os.environ['SPRED_PASS'])
-        experiment = session.create_object(params.remote_path)
-        experiment.download(output.zipfile)
-        session.disconnect()
+        raw_dir = directory('raw/site-{site}/sub-{subject}/{filetype,EEG}')
+    shadow: 'minimal'
+    shell:
+        'mkdir -p {output.raw_dir} temp_zips && '
+        'for zip in $(ls {input.zip_dir}/*.zip); '
+        'do'
+        ' unzip -j -d temp_zips ${{zip}}; '
+        'done'
+        'for zip in $(ls temp_zips/*.zip); '
+        'do'
+        ' unzip -j -d {output.raw_dir} ${{zip}}; '
+        'done'
+
+
+rule gather_eeg_bids:
+    input:
+        raw_dir = lambda wildcards: expand('raw/site-{site}/sub-{subject}/EEG',site=wildcards.site,subject=get_subjects(wildcards.site))
+    output:
+        bids_flat = directory('bids_eeg_flat/site-{site}')
+       
+    shell:
+        'mkdir -p {output.bids_flat} && '
+        'for d in {input.raw_dir}; '
+        'do '
+        ' mv -v {input.raw_dir}/* {output.bids_flat};'
+        'done'
 
 rule make_dicom_tar:
     input:
-        zipfile = 'raw/site-{site}/sub-{subject}/mri.zip'
+        zip_dir = 'zips/site-{site}/sub-{subject}/{filetype}'
     params:
         file_match = '*/scans/*/resources/DICOM/files/*',
-        temp_dir = os.path.join(config['tmp_download'],'raw/site-{site}/sub-{subject}/mri_unzip')
+        temp_dir = os.path.join(config['tmp_download'],'raw/site-{site}/sub-{subject}/{filetype}')
     output:
-        tar = 'raw/site-{site}/sub-{subject}/mri/sub-{subject}.tar'
+        tar = 'raw/site-{site}/sub-{subject}/{filetype,MR}/sub-{subject}.tar'
     group: 'dl'
     shell:
         'mkdir -p {params.temp_dir} && '
-        'unzip -d {params.temp_dir} {input.zipfile} {params.file_match} && '
+        'for zip in $(ls {input.zip_dir}/*.zip); '
+        'do '
+        ' unzip -d {params.temp_dir} ${{zip}} {params.file_match}; '
+        'done && '
         'tar -cvf {output.tar} {params.temp_dir} && '
         'rm -rf {params.temp_dir}'
 
        
 rule tar_to_bids:
     input:
-        tar = 'raw/site-{site}/sub-{subject}/mri/sub-{subject}.tar',
+        tar = 'raw/site-{site}/sub-{subject}/MR/sub-{subject}.tar',
         heuristic = lambda wildcards: config['tar2bids'][wildcards.site],
         container = 'resources/singularity/tar2bids.sif'
 
     params:
-        temp_bids_dir = 'raw/site-{site}/sub-{subject}/mri/temp_bids',
+        temp_bids_dir = 'raw/site-{site}/sub-{subject}/MR/temp_bids',
         heudiconv_tmpdir = os.path.join(config['tmp_download'],'{site}','{subject}')
     output:
         dir = directory('bids/site-{site}/sub-{subject}')

@@ -4,6 +4,11 @@ rule all_bids:
     input:
         expand('bids/site-{site}/dataset_description.json',site=config['sites'])
 
+rule all_flat_eeg:
+    input:
+        expand('bids_eeg_flat/site-{site}',site=config['sites'])
+
+
 
 rule all_update_lists:
     input:

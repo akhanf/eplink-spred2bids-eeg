@@ -5,11 +5,6 @@ envvars:
     'SPRED_PASS'
 
 
-def get_subjects(site):
-    if os.path.exists(f'resources/subjects_{site}.txt'):
-        with open(f'resources/subjects_{site}.txt','r') as f:
-            return [s.replace('\n','') for s in f.readlines()]
-
 localrules: get_subject_list
 
 rule get_subject_list:
@@ -20,16 +15,7 @@ rule get_subject_list:
     run:
         session = xnat.connect(config['spred_url'],user=os.environ['SPRED_USER'],password=os.environ['SPRED_PASS'])
         subjects = [row[0] for row in session.projects[params.site_id].subjects.tabulate(columns=['label'])]
-#        subjects_with_mr = list()
-#        for subject in subjects:
-#            try:
-#                exp = session.create_object(f'/data/projects/{params.site_id}/experiments/{subject}_01_SE01_MR')
-#                subjects_with_mr.append(subject.split('_')[2]) #strip off all but numeric part of ID
-#            except:
-#                print(f'{subject} does not have mri')
-#
         with open(output.subj_list, "w") as out:
-#            for s in subjects_with_mr:
             for s in subjects:
                 out.write(s.split('_')[2]+'\n') 
         session.disconnect()
@@ -101,18 +87,12 @@ rule extract_zips_eeg_twh_hsc:
         ' unzip -j -d {output.raw_dir} ${{zip}}; '
         'done'
 
-rule gather_eeg_bids:
-    input:
-        raw_dir = lambda wildcards: expand('raw/site-{site}/sub-{subject}/EEG',site=wildcards.site,subject=get_subjects(wildcards.site))
-    output:
-        bids_flat = directory('bids_eeg_flat/site-{site}')
-       
-    shell:
-        'mkdir -p {output.bids_flat} && '
-        'for d in {input.raw_dir}; '
-        'do '
-        ' mv -v {input.raw_dir}/* {output.bids_flat};'
-        'done'
+
+
+
+
+
+
 
 rule make_dicom_tar:
     input:

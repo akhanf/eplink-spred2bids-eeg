@@ -1,21 +1,51 @@
 configfile: 'config/config_download.yml'
 
-rule all_bids:
+rule all_bids_mri:
     input:
         expand('bids/site-{site}/dataset_description.json',site=config['sites'])
 
-rule all_flat_eeg:
-    input:
-        expand('bids_eeg_flat/site-{site}',site=config['sites'])
 
 
-
-rule all_update_lists:
+rule all_update_subject_lists:
     input:
         expand('resources/subjects_{site}.txt',site=config['sites'])
 
 
-        
+def get_subjects(site):
+
+    if os.path.exists(f'resources/subjects_{site}.txt'):
+        with open(f'resources/subjects_{site}.txt','r') as f:
+            return [s.replace('\n','') for s in f.readlines()]
+
+
+def get_ephys_zips():
+    zips = []
+    for site in config['sites']:
+        zips.extend( expand('zips/site-{site}/sub-{subject}/EEG',
+                        site=site,subject=get_subjects(site)))
+    return zips                      
+
+
+rule all_download_ephys_zips:
+    input: 
+        get_ephys_zips()
+
+rule all_bids_eeg:
+    input:
+        'bids_eeg/dataset_description.json'
+
+rule all_bids_ieeg:
+    input:
+        'bids_ieeg/dataset_description.json'
+
+
+
+
+
+wildcard_constraints:
+    subject='[a-zA-Z0-9]+',
+    site='LHS|TWH|HSC'
 
 include: 'rules/download.smk'
+include: 'rules/bids_eeg.smk'
 include: 'rules/singularity.smk'

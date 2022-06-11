@@ -10,25 +10,41 @@ rule all_update_subject_lists:
     input:
         expand('resources/subjects_{site}.txt',site=config['sites'])
 
-
 def get_subjects(site):
-
     if os.path.exists(f'resources/subjects_{site}.txt'):
         with open(f'resources/subjects_{site}.txt','r') as f:
             return [s.replace('\n','') for s in f.readlines()]
 
+def get_all_experiment_lists():
+    exps = []
+    for site in config['sites']:
+        for subject in get_subjects(site):
+            exps.append(f'resources/site-{site}_sub-{subject}_experiments.txt')
+    return exps
 
-def get_ephys_zips():
+def get_zips(filetype):
     zips = []
     for site in config['sites']:
-        zips.extend( expand('zips/site-{site}/sub-{subject}/EEG',
-                        site=site,subject=get_subjects(site)))
+        for subject in get_subjects(site):
+            
+            exp_list = f'resources/site-{site}_sub-{subject}_experiments.txt'
+        
+            with open(exp_list) as fd:
+                for exp in fd.read().splitlines():
+                    if exp.split('_')[-1] == filetype:
+                        zipfile = f'zips/site-{site}/sub-{subject}/{filetype}/{exp}.zip'
+                        zips.append(zipfile) 
     return zips                      
+
+rule all_update_experiment_lists:
+    input:
+        get_all_experiment_lists()
+
 
 
 rule all_download_ephys_zips:
     input: 
-        get_ephys_zips()
+        get_zips('EEG')
 
 rule all_bids_eeg:
     input:

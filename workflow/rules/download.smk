@@ -36,20 +36,22 @@ rule get_imaging_sessions:
         session.disconnect()
 
 
-rule get_zips:
+
+
+rule get_indiv_zip:
     input:
         exp_list = 'resources/site-{site}_sub-{subject}_experiments.txt'
+    params:
+        remote_path = '/data/projects/EPL31_{site}/experiments/EPL31_{site}_{subject}_{visit}_SE{sesnum}_{filetype}',
+        zipdir = 'zips/site-{site}/sub-{subject}/{filetype}'
     output:
-        zip_dir = directory('zips/site-{site}/sub-{subject}/{filetype}')
-    run:    
-        session = xnat.connect(config['spred_url'],user=os.environ['SPRED_USER'],password=os.environ['SPRED_PASS'])
-        shell('mkdir -p {output.zip_dir}')
-        with open(input.exp_list) as fd:
-            for exp in fd.read().splitlines():
-                if exp.split('_')[-1] == wildcards.filetype:
-                    experiment = session.create_object(f'/data/projects/EPL31_{wildcards.site}/experiments/{exp}')
-                    experiment.download(f'{output.zip_dir}/{exp}.zip') 
-        session.disconnect()
+        zipfile = 'zips/site-{site}/sub-{subject}/{filetype}/EPL31_{site}_{subject}_{visit}_SE{sesnum}_{filetype}.zip'
+    run:
+        shell('mkdir -p {params.zipdir}')
+        with xnat.connect(config['spred_url'],user=os.environ['SPRED_USER'],password=os.environ['SPRED_PASS']) as session:
+            experiment = session.create_object(params.remote_path)
+            experiment.download(output.zipfile) 
+    
 
 
 

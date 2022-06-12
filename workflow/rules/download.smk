@@ -43,12 +43,13 @@ rule get_indiv_zip:
         exp_list = 'resources/site-{site}_sub-{subject}_experiments.txt'
     params:
         remote_path = '/data/projects/EPL31_{site}/experiments/EPL31_{site}_{subject}_{visit}_SE{sesnum}_{filetype}',
-        zipdir = 'zips/site-{site}/sub-{subject}/{filetype}'
+        zipdir = 'zips/site-{site}/sub-{subject}/{filetype}',
+        debug_args = {'loglevel':'DEBUG','debug':True} if config.get('debug_download',False) else {},
     output:
-        zipfile = 'zips/site-{site}/sub-{subject}/{filetype}/EPL31_{site}_{subject}_{visit}_SE{sesnum}_{filetype}.zip'
+        zipfile = protected('zips/site-{site}/sub-{subject}/{filetype}/EPL31_{site}_{subject}_{visit}_SE{sesnum}_{filetype}.zip')
     run:
         shell('mkdir -p {params.zipdir}')
-        with xnat.connect(config['spred_url'],user=os.environ['SPRED_USER'],password=os.environ['SPRED_PASS']) as session:
+        with xnat.connect(config['spred_url'],user=os.environ['SPRED_USER'],password=os.environ['SPRED_PASS'],**params.debug_args) as session:
             experiment = session.create_object(params.remote_path)
             experiment.download(output.zipfile) 
     
@@ -56,46 +57,37 @@ rule get_indiv_zip:
 
 
 
-rule extract_zips_eeg_lhs:
+rule extract_zip_eeg_lhs:
     """LHS has zip in zip file; extract zip file, then extract the zip file in that; creates a flat bids tree"""
     input:
-        zip_dir = 'zips/site-{site}/sub-{subject}/{filetype}'
+        zipfile = 'zips/site-{site}/sub-{subject}/{filetype}/EPL31_{site}_{subject}_{visit}_SE{sesnum}_{filetype}.zip'
     output:
-        raw_dir = directory('raw/site-{site,LHS}/sub-{subject}/{filetype,EEG}')
+        raw_dir = directory('raw/site-{site,LHS}/sub-{subject}/ses-V{visit}SE{sesnum}_{filetype,EEG}')
     shadow: 'minimal'
     shell:
-        'mkdir -p {output.raw_dir} temp_zips && '
-        'for zip in $(ls {input.zip_dir}/*.zip); '
-        'do'
-        ' unzip -j -d temp_zips ${{zip}}; '
-        'done && '
+        'mkdir -p {output.raw_dir} temp_zip && '
+        'unzip -j -d temp_zips {input.zipfile} && '
         'for zip in $(ls temp_zips/*.zip); '
         'do'
         ' unzip -j -d {output.raw_dir} ${{zip}}; '
         'done'
 
-
-rule extract_zips_eeg_twh_hsc:
+rule extract_zip_eeg_twh_hsc:
     """TWH and HSC just have a zip file with the bids data"""
     input:
-        zip_dir = 'zips/site-{site}/sub-{subject}/{filetype}'
+        zipfile = 'zips/site-{site}/sub-{subject}/{filetype}/EPL31_{site}_{subject}_{visit}_SE{sesnum}_{filetype}.zip'
     output:
-        raw_dir = directory('raw/site-{site,TWH|HSC}/sub-{subject}/{filetype,EEG}')
+        raw_dir = directory('raw/site-{site,TWH|HSC}/sub-{subject}/ses-V{visit}SE{sesnum}_{filetype,EEG}')
     shadow: 'minimal'
     shell:
-        'mkdir -p {output.raw_dir}  && '
-        'for zip in $(ls {input.zip_dir}/*.zip); '
-        'do'
-        ' unzip -j -d {output.raw_dir} ${{zip}}; '
-        'done'
+        'mkdir -p {output.raw_dir} && '
+        'unzip -j -d temp_zips {input.zipfile}'
 
 
 
 
 
-
-
-
+#TODO: update this rule to expand over the indiv MR zips (usually only one, but could be two?)
 rule make_dicom_tar:
     input:
         zip_dir = 'zips/site-{site}/sub-{subject}/{filetype}'

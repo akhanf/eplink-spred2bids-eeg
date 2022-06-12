@@ -2,7 +2,7 @@ from snakebids.utils.snakemake_io import glob_wildcards
 
 
 def get_wildcards_from_downloaded_ieeg():
-    wildcards = glob_wildcards('raw/site-{site}/sub-{subject}/EEG/sub-EPL31{site}{subject}_ses-{session}_task-{task}_run-{run}_ieeg.edf')
+    wildcards = glob_wildcards('raw/site-{site}/sub-{subject}/ses-{session}_EEG/sub-EPL31{site}{subject}_ses-{session}_task-{task}_run-{run}_ieeg.edf')
     
     zip_list = dict()
     zip_list['subject'] = wildcards.subject
@@ -14,7 +14,7 @@ def get_wildcards_from_downloaded_ieeg():
     return zip_list
 
 def get_wildcards_from_downloaded_eeg():
-    wildcards = glob_wildcards('raw/site-{site}/sub-{subject}/EEG/sub-EPL31{site}{subject}_ses-{session}_task-{task}_run-{run}_eeg.edf')
+    wildcards = glob_wildcards('raw/site-{site}/sub-{subject}/ses-{session}_EEG/sub-EPL31{site}{subject}_ses-{session}_task-{task}_run-{run}_eeg.edf')
     zip_list = dict()
     zip_list['subject'] = wildcards.subject
     zip_list['site'] = wildcards.site

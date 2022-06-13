@@ -1,8 +1,36 @@
 from snakebids.utils.snakemake_io import glob_wildcards
 
+rule extract_zip_eeg_lhs:
+    """LHS has zip in zip file; extract zip file, then extract the zip file in that; creates a flat bids tree"""
+    input:
+        zipfile = ancient('zips/site-{site}/sub-{subject}/{filetype}/EPL31_{site}_{subject}_{visit}_SE{sesnum}_{filetype}.zip')
+    output:
+        raw_dir = directory('raw/site-{site,LHS}/sub-{subject}/{filetype,EEG}/EPL31_{site}_{subject}_{visit}_SE{sesnum}_{filetype}')
+    shadow: 'minimal'
+    shell:
+        'mkdir -p {output.raw_dir} temp_zip && '
+        'unzip -j -d temp_zips {input.zipfile} && '
+        'for zip in $(ls temp_zips/*.zip); '
+        'do'
+        ' unzip -j -d {output.raw_dir} ${{zip}}; '
+        'done'
+
+rule extract_zip_eeg_twh_hsc:
+    """TWH and HSC just have a zip file with the bids data"""
+    input:
+        zipfile = ancient('zips/site-{site}/sub-{subject}/{filetype}/EPL31_{site}_{subject}_{visit}_SE{sesnum}_{filetype}.zip')
+    output:
+        raw_dir = directory('raw/site-{site,TWH|HSC}/sub-{subject}/{filetype,EEG}/EPL31_{site}_{subject}_{visit}_SE{sesnum}_{filetype}')
+    shadow: 'minimal'
+    shell:
+        'mkdir -p {output.raw_dir} && '
+        'unzip -j -d temp_zips {input.zipfile}'
+
+
+
 
 def get_wildcards_from_downloaded_ieeg():
-    wildcards = glob_wildcards('raw/site-{site}/sub-{subject}/ses-{session}_EEG/sub-EPL31{site}{subject}_ses-{session}_task-{task}_run-{run}_ieeg.edf')
+    wildcards = glob_wildcards('raw/site-{site}/sub-{subject}/EEG/sub-EPL31{site}{subject}_ses-{session}_task-{task}_run-{run}_ieeg.edf')
     
     zip_list = dict()
     zip_list['subject'] = wildcards.subject
@@ -14,7 +42,7 @@ def get_wildcards_from_downloaded_ieeg():
     return zip_list
 
 def get_wildcards_from_downloaded_eeg():
-    wildcards = glob_wildcards('raw/site-{site}/sub-{subject}/ses-{session}_EEG/sub-EPL31{site}{subject}_ses-{session}_task-{task}_run-{run}_eeg.edf')
+    wildcards = glob_wildcards('raw/site-{site}/sub-{subject}/EEG/sub-EPL31{site}{subject}_ses-{session}_task-{task}_run-{run}_eeg.edf')
     zip_list = dict()
     zip_list['subject'] = wildcards.subject
     zip_list['site'] = wildcards.site
@@ -33,17 +61,14 @@ zip_list['eeg'] = get_wildcards_from_downloaded_eeg()
 
 
 
-
 rule create_bids_eeg_folder:
     input:
-        raw_dir = 'raw/site-{site}/sub-{subject}/EEG'
-    params:
-        glob = 'sub-EPL31{site}{subject}_ses-{session}_*'
+        raw_dir = 'raw/site-{site}/sub-{subject}/EEG/EPL31_{site}_{subject}_{visit}_SE{sesnum}_EEG'
     output:
-        eeg_dir = directory('bids_{eeg_type}/sub-EPL31{site}{subject}/ses-{session}/{eeg_type}')
+        eeg_dir = directory('bids_{eeg_type}/sub-EPL31{site}{subject}/ses-V{visit}SE{sesnum}/{eeg_type}')
     shell: 
         'mkdir -p {output.eeg_dir} && '
-        'cp -v {input.raw_dir}/{params.glob} {output.eeg_dir}'
+        'mv -v {input.raw_dir}/* {output.eeg_dir}'
 
 rule create_dataset_json_eeg:
     input:

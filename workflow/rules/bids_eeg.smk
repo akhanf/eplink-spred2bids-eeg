@@ -3,17 +3,19 @@ from snakebids.utils.snakemake_io import glob_wildcards
 rule extract_zip_eeg_lhs:
     """LHS has zip in zip file; extract zip file, then extract the zip file in that; creates a flat bids tree"""
     input:
-        zipfile = ancient('zips/site-{site}/sub-{subject}/{filetype}/EPL31_{site}_{subject}_{visit}_SE{sesnum}_{filetype}.zip')
+        zipfile = ancient('zips/site-{site}/sub-{subject}/{filetype}/EPL31_{site}_{subject}_{visit}_SE{sesnum}_{filetype}.zip'),
+        unzip_exec = 'ext_bin/7za' #7zip binary required for the enclosed zipfile, compile from https://github.com/jinfeihan57/p7zip
     output:
         raw_dir = directory('raw/site-{site,LHS}/sub-{subject}/{filetype,EEG}/EPL31_{site}_{subject}_{visit}_SE{sesnum}_{filetype}')
     shadow: 'minimal'
     shell:
-        'mkdir -p {output.raw_dir} temp_zip && '
+        'mkdir -p {output.raw_dir} temp_zip temp_unzipped && '
         'unzip -j -d temp_zips {input.zipfile} && '
         'for zip in $(ls temp_zips/*.zip); '
         'do'
-        ' unzip -j -d {output.raw_dir} ${{zip}}; '
-        'done'
+        ' {input.unzip_exec} x -bb3 -y -otemp_unzipped ${{zip}}; '
+        'done && '
+        'mv $(find temp_unzipped -type f) {output.raw_dir}' 
 
 rule extract_zip_eeg_twh_hsc:
     """TWH and HSC just have a zip file with the bids data"""

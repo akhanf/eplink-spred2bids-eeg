@@ -27,7 +27,7 @@ def get_wildcards_from_downloaded_ieeg():
     zip_list = dict()
     zip_list['subject'] = wildcards.subject
     zip_list['site'] = wildcards.site
-    zip_list['session'] = wildcards.session
+    zip_list['session'] = [f'V{visit}SE{sesnum}' for visit,sesnum in zip(wildcards.visit,wildcards.sesnum) ]
     zip_list['run'] = wildcards.run
     zip_list['task'] = wildcards.task
 
@@ -46,14 +46,11 @@ def get_wildcards_from_downloaded_eeg():
     return zip_list
 
 
-
-
 zip_list=dict()
 zip_list['ieeg'] = get_wildcards_from_downloaded_ieeg()
 zip_list['eeg'] = get_wildcards_from_downloaded_eeg()
 
 
-print(zip_list)
 
 rule create_bids_eeg_folder:
     input:
@@ -61,11 +58,12 @@ rule create_bids_eeg_folder:
     output:
         eeg_dir = directory('bids_{eeg_type}/sub-EPL31{site}{subject}/ses-V{visit}SE{sesnum}/{eeg_type}')
     shell: 
-        'mkdir -p {output.eeg_dir} && '
-        'for f in $(find {input.raw_dir} -type f ); '
-        'do '
-        ' ln -srv  $f {output.eeg_dir};'
-        'done'
+        "mkdir -p {output.eeg_dir} && "
+        "for f in $(find {input.raw_dir} -type f); "
+        "do "
+        " ln -srv  $f {output.eeg_dir};"
+        "done && "
+        "rename annotations.tsv events.tsv {output.eeg_dir}/*" #rename annotations.tsv to events.tsv
 
 rule create_dataset_json_eeg:
     input:
@@ -74,20 +72,12 @@ rule create_dataset_json_eeg:
                         **zip_list[wildcards.eeg_type], 
                         allow_missing=True),
                         eeg_type=wildcards.eeg_type),
-        json = 'resources/dataset_description_template.json'
+        json = 'resources/dataset_description_template.json',
+        events_json = 'resources/events.json'
     output:
-        json = 'bids_{eeg_type}/dataset_description.json'
-    shell: 'cp {input.json} {output.json}'
+        json = 'bids_{eeg_type}/dataset_description.json',
+        events_json = 'bids_{eeg_type}/events.json'
+    shell: 'cp {input.json} {output.json} && cp {input.events_json} {output.events_json}'
 
-
-rule :
-    input: 
-#        raw_dir = lambda wildcards: expand('raw/site-{site}/sub-{subject}/EEG',site=wildcards.site,subject=get_subjects(wildcards.site))
-#rule grab_ieeg_prebids:
-#    input:
-#        'raw/site-{site}/sub-{subject}/EEG/sub-EPL31LHS0003_ses-V02SE16_task-full_run-01_ieeg.edf'
-#        get_inputs
-#    output:
-#        'bids-combined/sub-{subject}/ses-{session}/ieeg/sub-{subject}_ses-{session}_task-{task}_run-{run}_ieeg.edf'
 
 

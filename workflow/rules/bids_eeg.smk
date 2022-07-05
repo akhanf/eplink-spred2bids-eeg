@@ -8,6 +8,7 @@ rule extract_zip_eeg_lhs:
     output:
         raw_dir = directory('raw/site-{site,LHS}/sub-{subject}/{filetype,EEG}/EPL31_{site}_{subject}_{visit}_SE{sesnum}_{filetype}')
     shadow: 'minimal'
+    group: 'unzip'
     shell:
         'mkdir -p {output.raw_dir} temp_zip temp_unzipped && '
         'unzip -j -d temp_zips {input.zipfile} && '
@@ -24,9 +25,10 @@ rule extract_zip_eeg_twh_hsc:
     output:
         raw_dir = directory('raw/site-{site,TWH|HSC}/sub-{subject}/{filetype,EEG}/EPL31_{site}_{subject}_{visit}_SE{sesnum}_{filetype}')
     shadow: 'minimal'
+    group: 'unzip'
     shell:
         'mkdir -p {output.raw_dir} && '
-        'unzip -j -d temp_zips {input.zipfile}'
+        'unzip -j -d {output.raw_dir} {input.zipfile}'
 
 
 

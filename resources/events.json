@@ -1,15 +1,22 @@
 {
+    "onset": {
+        "LongName": "Onset time",
+        "Description": "Time the event occurred, relative to the time the recording began."
+    },
+    "duration": {
+        "LongName": "Event duration",
+        "Description": "Duration of the marked event (-1 indicates no duration, which is default for all events)."
+    },
     "time_abs": {
         "LongName": "Absolute time",
-        "Description": "Absolute timing of event"
+        "Description": "Absolute time for the event (real world time)."
     },
     "time_rel": {
         "LongName": "Relative time",
-        "Description": "Relative timing of event"
+        "Description": "Relative time for the event (time elapsed since the beginning of the recording)."
     },
     "event": {
         "LongName": "Event name",
-        "Description": "Name of event"
+        "Description": "Event marker text (extracted from the annotations field in the Natus software)."
     }
 }
-

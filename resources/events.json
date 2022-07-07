@@ -1,0 +1,15 @@
+{
+    "time_abs": {
+        "LongName": "Absolute time",
+        "Description": "Absolute timing of event"
+    },
+    "time_rel": {
+        "LongName": "Relative time",
+        "Description": "Relative timing of event"
+    },
+    "event": {
+        "LongName": "Event name",
+        "Description": "Name of event"
+    }
+}
+

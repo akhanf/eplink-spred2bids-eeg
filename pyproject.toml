@@ -5,9 +5,9 @@ description = ""
 authors = ["Ali Khan <alik@robarts.ca>"]
 
 [tool.poetry.dependencies]
-python = "^3.8"
-snakemake = "^6.10.0"
+python = ">=3.7,<3.12"
 xnat = "^0.3.28"
+snakebids = "^0.8.1"
 
 [tool.poetry.dev-dependencies]
 

@@ -1,82 +1,9 @@
 configfile: 'config/config_download.yml'
 
-rule all_bids_mri:
-    input:
-        expand('bids/site-{site}/dataset_description.json',site=config['sites'])
+#rule all_bids_mri:
+#    input:
+#        expand('bids/site-{site}/dataset_description.json',site=config['sites'])
 
-
-
-rule all_update_subject_lists:
-    input:
-        expand('resources/subjects_{site}.txt',site=config['sites'])
-
-def get_subjects(site):
-    if os.path.exists(f'resources/subjects_{site}.txt'):
-        with open(f'resources/subjects_{site}.txt','r') as f:
-            return [s.replace('\n','') for s in f.readlines()]
-
-def get_all_experiment_lists():
-    exps = []
-    for site in config['sites']:
-        for subject in get_subjects(site):
-            exps.append(f'resources/site-{site}_sub-{subject}_experiments.txt')
-    return exps
-
-def get_zips(filetype):
-    zips = []
-    for site in config['sites']:
-        for subject in get_subjects(site):
-            
-            exp_list = f'resources/site-{site}_sub-{subject}_experiments.txt'
-        
-            with open(exp_list) as fd:
-                for exp in fd.read().splitlines():
-                    if exp in config['ignore_experiments']:
-                        continue
-                    if exp.split('_')[-1] == filetype:
-                        zipfile = f'zips/site-{site}/sub-{subject}/{filetype}/{exp}.zip'
-                        zips.append(zipfile) 
-    return zips                      
-
-def get_raw_dirs(filetype):
-    raw = []
-    for site in config['sites']:
-        for subject in get_subjects(site):
-            
-            exp_list = f'resources/site-{site}_sub-{subject}_experiments.txt'
-        
-            with open(exp_list) as fd:
-                for exp in fd.read().splitlines():
-                    if exp in config['ignore_experiments']:
-                        continue
-                    if exp.split('_')[-1] == filetype:
-                        rawdir = f'raw/site-{site}/sub-{subject}/{filetype}/{exp}'
-                        raw.append(rawdir) 
-    return raw                      
-
-
-rule all_update_experiment_lists:
-    input:
-        get_all_experiment_lists()
-
-
-
-rule all_download_ephys_zips:
-    input: 
-        get_zips('EEG')
-
-
-rule all_extract_ephys_zips:
-    input:
-        get_raw_dirs('EEG')
-
-rule all_bids_eeg:
-    input:
-        'bids_eeg/dataset_description.json'
-
-rule all_bids_ieeg:
-    input:
-        'bids_ieeg/dataset_description.json'
 
 
 
@@ -86,7 +13,11 @@ wildcard_constraints:
     subject='[a-zA-Z0-9]+',
     site='LHS|TWH|HSC'
 
-include: 'rules/download.smk'
-include: 'rules/bids_eeg.smk'
-include: 'rules/bids_mri.smk'
+if config['update_lists']:
+       
+    include: 'rules/update_lists.smk'
+else:
+    include: 'rules/download.smk'
+#include: 'rules/bids_eeg.smk'
+#include: 'rules/bids_mri.smk'
 include: 'rules/singularity.smk'

@@ -1,3 +1,6 @@
+update_lists: False
+
+
 spred_url: 'https://spred.braincode.ca/spred/'
 sites:
   - LHS

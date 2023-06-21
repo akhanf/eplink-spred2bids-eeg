@@ -1,4 +1,35 @@
 from snakebids.utils.snakemake_io import glob_wildcards
+rule all_extract_ephys_zips:
+    input:
+        get_raw_dirs('EEG')
+
+rule all_bids_eeg:
+    input:
+        'bids_eeg/dataset_description.json'
+
+rule all_bids_ieeg:
+    input:
+        'bids_ieeg/dataset_description.json'
+
+
+
+def get_raw_dirs(filetype):
+    raw = []
+    for site in config['sites']:
+        for subject in get_subjects(site):
+            
+            exp_list = f'resources/site-{site}_sub-{subject}_experiments.txt'
+        
+            with open(exp_list) as fd:
+                for exp in fd.read().splitlines():
+                    if exp in config['ignore_experiments']:
+                        continue
+                    if exp.split('_')[-1] == filetype:
+                        rawdir = f'raw/site-{site}/sub-{subject}/{filetype}/{exp}'
+                        raw.append(rawdir) 
+    return raw                      
+
+
 
 rule extract_zip_eeg:
     """extract zipfile, that optionally contains another zipfile that needs 7za to extract"""

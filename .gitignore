@@ -1,3 +1,4 @@
 resources/singularity/*
 .snakemake/
 bids/
+zips/

@@ -1,19 +1,6 @@
 from snakebids.utils.snakemake_io import glob_wildcards
-rule all_extract_ephys_zips:
-    input:
-        get_raw_dirs('EEG')
 
-rule all_bids_eeg:
-    input:
-        'bids_eeg/dataset_description.json'
-
-rule all_bids_ieeg:
-    input:
-        'bids_ieeg/dataset_description.json'
-
-
-
-def get_raw_dirs(filetype):
+def get_raw_dirs_(filetype):
     raw = []
     for site in config['sites']:
         for subject in get_subjects(site):
@@ -31,24 +18,14 @@ def get_raw_dirs(filetype):
 
 
 
-rule extract_zip_eeg:
-    """extract zipfile, that optionally contains another zipfile that needs 7za to extract"""
-    input:
-        zipfile = ancient('zips/site-{site}/sub-{subject}/{filetype}/EPL31_{site}_{subject}_{visit}_SE{sesnum}_{filetype}.zip'),
-        unzip_exec = 'ext_bin/7za' #7zip binary required for the enclosed zipfile, compile from https://github.com/jinfeihan57/p7zip
-    output:
-        raw_dir = directory('raw/site-{site}/sub-{subject}/{filetype,EEG}/EPL31_{site}_{subject}_{visit}_SE{sesnum}_{filetype}')
-    shadow: 'minimal'
-    group: 'unzip'
-    shell:
-        "mkdir -p {output.raw_dir} temp_unzipped && "
-        "unzip -j -d temp_unzipped {input.zipfile} && "
-        "for zip in $(find temp_unzipped -type f -name '*.zip'); "
-        "do"
-        " {input.unzip_exec} x -bb3 -y -otemp_unzipped ${{zip}}; "
-        "done && "
-        "mv $(find temp_unzipped -type f ! -name '*.zip') {output.raw_dir}"
 
+rule all_bids_eeg:
+    input:
+        'bids_eeg/dataset_description.json'
+
+rule all_bids_ieeg:
+    input:
+        'bids_ieeg/dataset_description.json'
 
 
 

@@ -71,7 +71,6 @@ def get_raw_dirs(filetype):
                     if exp.split('_')[-1] == filetype:
                         rawdir = f'raw/site-{site}/sub-{subject}/{filetype}/{exp}'
                         raw.append(rawdir) 
-    print(raw)
     return raw                      
 
 
@@ -91,6 +90,7 @@ rule extract_zip_eeg:
         raw_dir = directory('raw/site-{site}/sub-{subject}/{filetype,EEG}/EPL31_{site}_{subject}_{visit}_SE{sesnum}_{filetype}')
     shadow: 'minimal'
     group: 'unzip'
+    threads: 4
     shell:
         "mkdir -p {output.raw_dir} temp_unzipped && "
         "unzip -j -d temp_unzipped {input.zipfile} && "

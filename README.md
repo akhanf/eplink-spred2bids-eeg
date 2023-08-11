@@ -1,5 +1,5 @@
 # eplink-spred2bids
-Snakemake workflow for downloading and converting EpLink MRI data to BIDS
+Snakemake workflow for downloading and converting EpLink EEG data to BIDS
 
 ## Prerequisites:
 
@@ -21,12 +21,6 @@ snakemake -np
 ```
 snakemake --cores 4
 ```
-
-
-## Instructions for bids MRI
- 
-TODO: this branch breaks the bids MRI conversion that is in the `main` branch, use that for now until this is fixed..
-
 
 
 ## Instructions for bids EEG and iEEG:

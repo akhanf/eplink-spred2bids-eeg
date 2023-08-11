@@ -1,7 +1,5 @@
 from snakebids.utils.snakemake_io import glob_wildcards
-rule all_extract_ephys_zips:
-    input:
-        get_raw_dirs('EEG')
+import pandas as pd
 
 rule all_bids_eeg:
     input:
@@ -12,97 +10,53 @@ rule all_bids_ieeg:
         'bids_ieeg/dataset_description.json'
 
 
+#load zip lists from tsv files - these must first be created 
+zip_list={}
+for suffix in ['eeg','ieeg']:
+    zip_list[suffix] = pd.read_table(f'resources/subject_sessions_{suffix}.tsv',dtype={'subject':str})[['subject','session','site','run','task']].to_dict(orient='list')
 
-def get_raw_dirs(filetype):
-    raw = []
-    for site in config['sites']:
-        for subject in get_subjects(site):
-            
-            exp_list = f'resources/site-{site}_sub-{subject}_experiments.txt'
-        
-            with open(exp_list) as fd:
-                for exp in fd.read().splitlines():
-                    if exp in config['ignore_experiments']:
-                        continue
-                    if exp.split('_')[-1] == filetype:
-                        rawdir = f'raw/site-{site}/sub-{subject}/{filetype}/{exp}'
-                        raw.append(rawdir) 
-    return raw                      
+eeg_dirs = expand('bids_eeg/sub-EPL31{site}{subject}/ses-{session}/eeg',
+                        zip,
+                        **zip_list['eeg'],
+                        allow_missing=True)
+
+ieeg_dirs = expand('bids_ieeg/sub-EPL31{site}{subject}/ses-{session}/ieeg',
+                        zip,
+                        **zip_list['ieeg'],
+                        allow_missing=True)
 
 
 
-rule extract_zip_eeg:
-    """extract zipfile, that optionally contains another zipfile that needs 7za to extract"""
-    input:
-        zipfile = ancient('zips/site-{site}/sub-{subject}/{filetype}/EPL31_{site}_{subject}_{visit}_SE{sesnum}_{filetype}.zip'),
-        unzip_exec = 'ext_bin/7za' #7zip binary required for the enclosed zipfile, compile from https://github.com/jinfeihan57/p7zip
+
+rule create_eeg_ieeg_scans_tsv:
+    """ this parses the contents of the downloaded and extracted zip files to create a tsv file for the zip lists"""
     output:
-        raw_dir = directory('raw/site-{site}/sub-{subject}/{filetype,EEG}/EPL31_{site}_{subject}_{visit}_SE{sesnum}_{filetype}')
-    shadow: 'minimal'
-    group: 'unzip'
-    shell:
-        "mkdir -p {output.raw_dir} temp_unzipped && "
-        "unzip -j -d temp_unzipped {input.zipfile} && "
-        "for zip in $(find temp_unzipped -type f -name '*.zip'); "
-        "do"
-        " {input.unzip_exec} x -bb3 -y -otemp_unzipped ${{zip}}; "
-        "done && "
-        "mv $(find temp_unzipped -type f ! -name '*.zip') {output.raw_dir}"
+        tsv='resources/subject_sessions_{datatype}.tsv'
+    params:
+        datatype='{datatype}'
+    script:
+        '../scripts/create_tsv_from_downloaded_eeg_ieeg.py'
 
 
-
-
-def get_wildcards_from_downloaded_ieeg():
-    wildcards = glob_wildcards('raw/site-{site}/sub-{subject}/EEG/EPL31_{site}_{subject}_{visit}_SE{sesnum}_EEG/sub-EPL31{site}{subject}_ses-{session}_task-{task}_run-{run}_ieeg.edf')
-    
-    zip_list = dict()
-    zip_list['subject'] = wildcards.subject
-    zip_list['site'] = wildcards.site
-    zip_list['session'] = [f'V{visit}SE{sesnum}' for visit,sesnum in zip(wildcards.visit,wildcards.sesnum) ]
-    zip_list['run'] = wildcards.run
-    zip_list['task'] = wildcards.task
-
-    return zip_list
-
-def get_wildcards_from_downloaded_eeg():
-    wildcards = glob_wildcards('raw/site-{site}/sub-{subject}/EEG/EPL31_{site}_{subject}_{visit}_SE{sesnum}_EEG/sub-EPL31{site}{subject}_ses-V{visit}SE{sesnum}_task-{task}_run-{run}_eeg.edf')
-
-    zip_list = dict()
-    zip_list['subject'] = wildcards.subject
-    zip_list['site'] = wildcards.site
-    zip_list['session'] = [f'V{visit}SE{sesnum}' for visit,sesnum in zip(wildcards.visit,wildcards.sesnum) ]
-    zip_list['run'] = wildcards.run
-    zip_list['task'] = wildcards.task
-
-    return zip_list
-
-
-zip_list=dict()
-zip_list['ieeg'] = get_wildcards_from_downloaded_ieeg()
-zip_list['eeg'] = get_wildcards_from_downloaded_eeg()
-
-
-
-rule create_bids_eeg_folder:
+rule tuneup_bids_eeg_folder:
     input:
-        raw_dir = 'raw/site-{site}/sub-{subject}/EEG/EPL31_{site}_{subject}_{visit}_SE{sesnum}_EEG'
+        raw_dir = 'raw/site-{site}/sub-{subject}/EEG/EPL31_{site}_{subject}_{visit}_SE{sesnum}_EEG',
+        events_hdr_only = 'resources/header_events.tsv'
     output:
         eeg_dir = directory('bids_{eeg_type}/sub-EPL31{site}{subject}/ses-V{visit}SE{sesnum}/{eeg_type}')
-    shell: 
-        "mkdir -p {output.eeg_dir} && "
-        "for f in $(find {input.raw_dir} -type f); "
-        "do "
-        " ln -srv  $f {output.eeg_dir};"
-        "done && "
-        "rename annotations.tsv events.tsv {output.eeg_dir}/*" #rename annotations.tsv to events.tsv
+    script: '../scripts/tuneup_bids_eeg_folder.py'
+
+
+
+def get_bids_eeg_dirs(wildcards):
+    eeg_dirs = expand(f'bids_{wildcards.eeg_type}'+'/sub-EPL31{site}{subject}/ses-{session}/'+f'{wildcards.eeg_type}',
+                    zip,
+                    **zip_list[wildcards.eeg_type])
+    return eeg_dirs
 
 rule create_dataset_json_eeg:
     input:
-        eeg_dirs = lambda wildcards: expand(expand('bids_{eeg_type}/sub-EPL31{site}{subject}/ses-{session}/{eeg_type}',
-                        zip,
-                        **zip_list[wildcards.eeg_type], 
-                        allow_missing=True),
-                        eeg_type=wildcards.eeg_type),
+        eeg_dirs = get_bids_eeg_dirs,
         json = 'resources/dataset_description_template.json',
         events_json = 'resources/events.json'
     output:
